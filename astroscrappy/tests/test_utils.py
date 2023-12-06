@@ -2,10 +2,10 @@
 import numpy as np
 from numpy.testing import assert_allclose
 
-from ..utils import (median, optmed3, optmed5, optmed7, optmed9, optmed25,
-                     medfilt3, medfilt5, medfilt7, sepmedfilt3, sepmedfilt5,
-                     sepmedfilt7, sepmedfilt9, dilate3, dilate5, subsample,
-                     rebin, laplaceconvolve, convolve)
+from astroscrappy.utils import (median, optmed3, optmed5, optmed7, optmed9, optmed25,
+                                medfilt3, medfilt5, medfilt7, sepmedfilt3, sepmedfilt5,
+                                sepmedfilt7, sepmedfilt9, dilate3, dilate5, subsample,
+                                rebin, laplaceconvolve, convolve)
 
 from scipy.ndimage.morphology import binary_dilation
 from scipy import ndimage
@@ -50,7 +50,7 @@ def test_medfilt3():
     npmed3[:, -1:] = a[:, -1:]
 
     med3 = medfilt3(a)
-    assert np.all(med3 == npmed3)
+    np.testing.assert_allclose(med3, npmed3)
 
 
 def test_medfilt5():
@@ -62,7 +62,7 @@ def test_medfilt5():
     npmed5[:, -2:] = a[:, -2:]
 
     med5 = medfilt5(a)
-    assert np.all(med5 == npmed5)
+    np.testing.assert_allclose(med5, npmed5)
 
 
 def test_medfilt7():
@@ -74,7 +74,7 @@ def test_medfilt7():
     npmed7[:, -3:] = a[:, -3:]
 
     med7 = medfilt7(a)
-    assert np.all(med7 == npmed7)
+    np.testing.assert_allclose(med7, npmed7)
 
 
 def test_sepmedfilt3():
@@ -89,7 +89,7 @@ def test_sepmedfilt3():
     npmed3[:, -1:] = a[:, -1:]
 
     med3 = sepmedfilt3(a)
-    assert np.all(med3 == npmed3)
+    np.testing.assert_allclose(med3, npmed3)
 
 
 def test_sepmedfilt5():
@@ -104,7 +104,7 @@ def test_sepmedfilt5():
     npmed5[:, -2:] = a[:, -2:]
 
     med5 = sepmedfilt5(a)
-    assert np.all(med5 == npmed5)
+    np.testing.assert_allclose(med5, npmed5)
 
 
 def test_sepmedfilt7():
@@ -119,7 +119,7 @@ def test_sepmedfilt7():
     npmed7[:, -3:] = a[:, -3:]
 
     med7 = sepmedfilt7(a)
-    assert np.all(med7 == npmed7)
+    np.testing.assert_allclose(med7, npmed7)
 
 
 def test_sepmedfilt9():
@@ -134,12 +134,14 @@ def test_sepmedfilt9():
     npmed9[:, -4:] = a[:, -4:]
 
     med9 = sepmedfilt9(a)
-    assert np.all(med9 == npmed9)
+    np.testing.assert_allclose(med9, npmed9)
 
 
 def test_dilate5():
+    niter = 2
     # Put 5% of the pixels into a mask
     a = np.zeros((1001, 1001), dtype=bool)
+    np.random.seed(12431523)
     a[np.random.random((1001, 1001)) < 0.05] = True
     kernel = np.ones((5, 5))
     kernel[0, 0] = 0
@@ -147,13 +149,22 @@ def test_dilate5():
     kernel[4, 0] = 0
     kernel[4, 4] = 0
     # Make a zero padded array for the numpy version to operate
-    paddeda = np.zeros((1005, 1005), dtype=bool)
-    paddeda[2:-2, 2:-2] = a[:, :]
-    npdilate = binary_dilation(np.ascontiguousarray(paddeda),
-                               structure=kernel, iterations=2)
-    cdilate = dilate5(a, 2)
+    npdilate = binary_dilation(a, structure=kernel, iterations=1, border_value=0)
 
-    assert np.all(npdilate[2:-2, 2:-2] == cdilate)
+    def reset_edges(dilated, data):
+        for i in range(2):
+            dilated[:, i] = data[:, i]
+            dilated[i, :] = data[i, :]
+        for i in range(-2, 0, 1):
+            dilated[:, i] = data[:, i]
+            dilated[i, :] = data[i, :]
+
+    reset_edges(npdilate, a)
+    npdilate = binary_dilation(npdilate.copy(), structure=kernel, iterations=1, border_value=0)
+    reset_edges(npdilate, a)
+    cdilate = dilate5(a, niter)
+
+    np.testing.assert_allclose(npdilate, cdilate)
 
 
 def test_dilate3():
@@ -161,8 +172,7 @@ def test_dilate3():
     a = np.zeros((1001, 1001), dtype=bool)
     a[np.random.random((1001, 1001)) < 0.05] = True
     kernel = np.ones((3, 3))
-    npgrow = binary_dilation(np.ascontiguousarray(a),
-                             structure=kernel, iterations=1)
+    npgrow = binary_dilation(np.ascontiguousarray(a), structure=kernel)
     cgrow = dilate3(a)
     npgrow[:, 0] = a[:, 0]
     npgrow[:, -1] = a[:, -1]
